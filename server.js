@@ -270,8 +270,10 @@ io.on('connection', (socket) => {
       created_at: message.created_at,
       sender_username: sender.username,
       sender_display_name: sender.display_name,
+      sender_avatar: sender.avatar_url,
       receiver_username: receiver.username,
       receiver_display_name: receiver.display_name,
+      receiver_avatar: receiver.avatar_url,
     };
 
     // Deliver to all sockets of both sender and receiver

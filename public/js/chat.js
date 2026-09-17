@@ -247,6 +247,7 @@ function setupEventListeners() {
                 currentUser.displayName = displayName;
                 currentUser.bio = bio;
                 updateCurrentUserUi();
+                updateVaultAccount(currentUser);
                 
                 settingsModal.style.display = 'none';
             } catch (err) {
@@ -278,6 +279,7 @@ function setupEventListeners() {
                     currentUser.avatar_url = data.avatarUrl;
                     currentUser.avatarUrl = data.avatarUrl;
                     updateCurrentUserUi();
+                    updateVaultAccount(currentUser);
                     
                     const name = currentUser.displayName || currentUser.display_name;
                     settingsAvatarPreview.innerHTML = getAvatarHtml(name, data.avatarUrl);
@@ -514,6 +516,7 @@ function updateConversationWithMessage(msg) {
             partner_id: partnerId,
             partner_username: partnerUsername,
             partner_display_name: partnerDisplayName,
+            partner_avatar: msg.sender_id === currentUser.id ? msg.receiver_avatar : msg.sender_avatar,
             last_message: msg.text,
             last_message_time: msg.created_at,
             last_sender_id: msg.sender_id,
@@ -729,6 +732,16 @@ function updatePartnerStatus() {
 
 function getInitial(name) {
     return name ? name.charAt(0).toUpperCase() : '?';
+}
+
+function updateVaultAccount(updatedUser) {
+    let accounts = JSON.parse(localStorage.getItem('chatty_accounts') || '[]');
+    const index = accounts.findIndex(a => a.id === updatedUser.id);
+    if (index >= 0) {
+        accounts[index].displayName = updatedUser.displayName || updatedUser.display_name;
+        accounts[index].avatarUrl = updatedUser.avatarUrl || updatedUser.avatar_url;
+        localStorage.setItem('chatty_accounts', JSON.stringify(accounts));
+    }
 }
 
 function escapeHtml(str) {
