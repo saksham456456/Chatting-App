@@ -1,66 +1,36 @@
-# Chatty 💬
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-A lightning-fast, real-time messaging web application inspired by Telegram. Built with a focus on speed, responsive design, and a modern multi-account architecture.
+## Getting Started
 
-## ✨ Features
+First, run the development server:
 
-- **Real-Time Messaging**: Powered by Socket.IO for instant message delivery without polling.
-- **Telegram-Style UI**: A clean, responsive interface that scales perfectly from desktop to mobile browsers.
-- **Multi-Account Vault**: Instagram-style login system. Store multiple accounts securely in your browser and switch between them instantly without needing to log out.
-- **Profile Customization**: Upload custom avatars, set display names, and write personal bios.
-- **Read Receipts**: Real-time message status tracking (✓ sent, ✓✓ read).
-- **Live Typing Indicators**: See when your partner is typing in real-time.
-- **Online/Offline Status**: Track exactly who is online.
-- **Search & Discovery**: Instantly search for other registered users to start new conversations.
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
 
-## 🛠️ Tech Stack
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-- **Frontend**: Vanilla HTML5, CSS3, JavaScript (No heavy frameworks, blazing fast)
-- **Backend**: Node.js, Express.js
-- **Real-Time**: Socket.IO
-- **Database**: SQLite (via `better-sqlite3` in WAL mode for high concurrency)
-- **Authentication**: Custom secure Token-based Auth (Multi-device, Multi-tab compatible)
-- **File Uploads**: Multer (for handling avatar uploads)
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-## 🚀 Getting Started
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-### Prerequisites
-- Node.js (v16 or higher recommended)
-- npm (Node Package Manager)
+## Learn More
 
-### Installation
+To learn more about Next.js, take a look at the following resources:
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/saksham456456/Chatting-App.git
-   cd Chatting-App
-   ```
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-3. **Start the server:**
-   ```bash
-   npm start
-   ```
+## Deploy on Vercel
 
-4. **Open the app:**
-   Open your browser and navigate to [http://localhost:3000](http://localhost:3000).
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-## 🗄️ Architecture & Database
-
-- **Zero-Config Database**: The app uses a local SQLite database (`chat.db`). The database file, along with necessary tables, is automatically created the first time you run the server.
-- **Secure Passwords**: All user passwords are cryptographically hashed using `bcryptjs` before being stored.
-- **Stateless Tokens**: The app uses randomized 256-bit hex tokens for session management, allowing the same user to be logged in across multiple devices seamlessly.
-- **Local Storage Vault**: The frontend uses `localStorage` as a secure vault for multiple account tokens, while `sessionStorage` tracks the active identity of individual browser tabs.
-
-## 📦 Versioning Strategy
-
-This project follows strict branching and versioning:
-- `main`: The stable, production-ready codebase (currently v1.0.0).
-- `v2-dev`: The active development branch for upcoming features (Group Chats, File Sharing, etc).
-
----
-*Developed for a fast, secure, and seamless messaging experience.*
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
