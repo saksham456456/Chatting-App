@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatty</title>
+    <link rel="stylesheet" href="/css/chat.css">
+</head>
+<body>
+    <div class="app" id="app">
+
+        <!-- ── Sidebar ── -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="user-info">
+                    <span class="user-avatar" id="userAvatar"></span>
+                    <span class="user-name" id="userName"></span>
+                </div>
+                <button class="btn-logout" id="logoutBtn" title="Logout">⏻</button>
+            </div>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="🔍  Search users..." autocomplete="off">
+            </div>
+            <div class="conversation-list" id="conversationList">
+                <div class="empty-state" id="noConversations">
+                    <p>No conversations yet.</p>
+                    <p class="hint">Search for a user to start chatting!</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ── Chat Panel ── -->
+        <main class="chat-panel">
+            <!-- Empty state (no chat selected) -->
+            <div class="no-chat" id="noChat">
+                <div class="no-chat-content">
+                    <div class="no-chat-icon">💬</div>
+                    <h2>Welcome to Chatty</h2>
+                    <p>Select a conversation or search for a user to start messaging.</p>
+                </div>
+            </div>
+
+            <!-- Active chat view -->
+            <div class="active-chat" id="activeChatEl" style="display: none;">
+                <div class="chat-header">
+                    <button class="btn-back" id="backBtn">←</button>
+                    <div class="chat-partner-info">
+                        <span class="partner-avatar" id="partnerAvatar"></span>
+                        <div>
+                            <div class="partner-name" id="partnerName"></div>
+                            <div class="partner-status" id="partnerStatus">offline</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="messages" id="messages"></div>
+                <form class="message-form" id="messageForm">
+                    <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off">
+                    <button type="submit" id="sendBtn">➤</button>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/chat.js"></script>
+</body>
+</html>
