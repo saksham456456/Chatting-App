@@ -1,4 +1,5 @@
 const Database = require('better-sqlite3');
+const crypto = require('crypto');
 const path = require('path');
 
 // ── Initialize Database ──
@@ -15,6 +16,13 @@ db.exec(`
     password_hash TEXT NOT NULL,
     display_name TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS sessions (
+    token TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS messages (
@@ -57,6 +65,27 @@ function searchUsers(query, currentUserId) {
   return db.prepare(
     'SELECT id, username, display_name FROM users WHERE username LIKE ? AND id != ? LIMIT 20'
   ).all(`%${query}%`, currentUserId);
+}
+
+// ── Session Functions ──
+
+function createSession(userId) {
+  const token = crypto.randomBytes(32).toString('hex');
+  db.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)').run(token, userId);
+  return token;
+}
+
+function getUserFromSession(token) {
+  return db.prepare(`
+    SELECT u.id, u.username, u.display_name
+    FROM sessions s
+    JOIN users u ON s.user_id = u.id
+    WHERE s.token = ?
+  `).get(token);
+}
+
+function deleteSession(token) {
+  db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
 }
 
 // ── Message Functions ──
@@ -129,6 +158,9 @@ module.exports = {
   findUserByUsername,
   findUserById,
   searchUsers,
+  createSession,
+  getUserFromSession,
+  deleteSession,
   saveMessage,
   getMessages,
   getConversationList,

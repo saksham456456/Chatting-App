@@ -9,6 +9,18 @@ let socket = null;
 let onlineUserIds = new Set();
 let isSearching = false;
 
+// ── Auth Token ──
+const authToken = sessionStorage.getItem('chatty_active_token');
+if (!authToken) {
+    window.location.href = '/';
+}
+
+// Wrapper for fetch to inject token
+async function apiFetch(url, options = {}) {
+    const headers = { ...options.headers, 'Authorization': `Bearer ${authToken}` };
+    return fetch(url, { ...options, headers });
+}
+
 // ────────────────────────────────────────────────
 //  DOM Elements
 // ────────────────────────────────────────────────
@@ -17,6 +29,10 @@ const appEl = document.getElementById('app');
 const userAvatarEl = document.getElementById('userAvatar');
 const userNameEl = document.getElementById('userName');
 const logoutBtn = document.getElementById('logoutBtn');
+const accountSwitcherBtn = document.getElementById('accountSwitcherBtn');
+const accountDropdown = document.getElementById('accountDropdown');
+const accountList = document.getElementById('accountList');
+const addAccountBtn = document.getElementById('addAccountBtn');
 const searchInput = document.getElementById('searchInput');
 const conversationListEl = document.getElementById('conversationList');
 const noChatEl = document.getElementById('noChat');
@@ -36,7 +52,7 @@ const backBtn = document.getElementById('backBtn');
 async function init() {
     // Check authentication
     try {
-        const res = await fetch('/api/me');
+        const res = await apiFetch('/api/me');
         if (!res.ok) {
             window.location.href = '/';
             return;
@@ -67,7 +83,9 @@ async function init() {
 // ────────────────────────────────────────────────
 
 function connectSocket() {
-    socket = io();
+    socket = io({
+        auth: { token: authToken }
+    });
 
     socket.on('connect', () => {
         hideConnectionStatus();
@@ -93,7 +111,7 @@ function connectSocket() {
 
             // Mark as read since we're looking at this conversation
             if (msg.sender_id !== currentUser.id) {
-                fetch(`/api/messages/${partnerId}/read`, { method: 'POST' });
+                apiFetch(`/api/messages/${partnerId}/read`, { method: 'POST' });
             }
         }
 
@@ -140,7 +158,41 @@ function connectSocket() {
 function setupEventListeners() {
     // Logout
     logoutBtn.addEventListener('click', async () => {
-        await fetch('/api/logout');
+        await apiFetch('/api/logout', { method: 'POST' });
+        
+        // Remove active token from session storage
+        sessionStorage.removeItem('chatty_active_token');
+        
+        // Remove account from vault
+        let accounts = JSON.parse(localStorage.getItem('chatty_accounts') || '[]');
+        accounts = accounts.filter(a => a.id !== currentUser.id);
+        localStorage.setItem('chatty_accounts', JSON.stringify(accounts));
+
+        window.location.href = '/';
+    });
+
+    // Account Switcher Dropdown
+    accountSwitcherBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isVisible = accountDropdown.style.display === 'block';
+        accountDropdown.style.display = isVisible ? 'none' : 'block';
+        if (!isVisible) {
+            renderAccountDropdown();
+        }
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!accountDropdown.contains(e.target) && !accountSwitcherBtn.contains(e.target)) {
+            accountDropdown.style.display = 'none';
+        }
+    });
+
+    // Add Account button
+    addAccountBtn.addEventListener('click', () => {
+        // Just go to index.html without a token in sessionStorage
+        // The vault remains in localStorage
+        sessionStorage.removeItem('chatty_active_token');
         window.location.href = '/';
     });
 
@@ -159,7 +211,7 @@ function setupEventListeners() {
         searchTimeout = setTimeout(async () => {
             isSearching = true;
             try {
-                const res = await fetch(
+                const res = await apiFetch(
                     `/api/search?q=${encodeURIComponent(query)}`
                 );
                 const data = await res.json();
@@ -203,13 +255,44 @@ function setupEventListeners() {
 }
 
 // ────────────────────────────────────────────────
+//  Multi-Account Switcher
+// ────────────────────────────────────────────────
+
+function renderAccountDropdown() {
+    accountList.innerHTML = '';
+    const accounts = JSON.parse(localStorage.getItem('chatty_accounts') || '[]');
+    
+    accounts.forEach(acc => {
+        const el = document.createElement('div');
+        el.className = `account-item ${acc.id === currentUser.id ? 'active' : ''}`;
+        
+        el.innerHTML = `
+            <div class="user-avatar">${getInitial(acc.displayName)}</div>
+            <div class="user-name">${escapeHtml(acc.displayName)} <span style="color:#999;font-size:12px;">@${escapeHtml(acc.username)}</span></div>
+        `;
+
+        el.addEventListener('click', () => {
+            if (acc.id === currentUser.id) {
+                accountDropdown.style.display = 'none';
+                return;
+            }
+            // Switch active token and reload
+            sessionStorage.setItem('chatty_active_token', acc.token);
+            window.location.reload();
+        });
+
+        accountList.appendChild(el);
+    });
+}
+
+// ────────────────────────────────────────────────
 //  Conversations
 // ────────────────────────────────────────────────
 
 async function loadConversations() {
     try {
         showLoading(conversationListEl);
-        const res = await fetch('/api/conversations');
+        const res = await apiFetch('/api/conversations');
         const data = await res.json();
         conversations = data.conversations;
         renderConversations();
@@ -384,7 +467,7 @@ async function openChat(partner) {
     // Load message history
     showLoading(messagesEl);
     try {
-        const res = await fetch(`/api/messages/${partner.id}`);
+        const res = await apiFetch(`/api/messages/${partner.id}`);
         const data = await res.json();
         renderMessages(data.messages);
     } catch (err) {

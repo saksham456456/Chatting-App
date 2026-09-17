@@ -1,7 +1,6 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const db = require('./database');
@@ -10,29 +9,27 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// ── Session Middleware ──
-
-const sessionMiddleware = session({
-  secret: 'chatty-secret-key-change-in-production',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-  },
-});
-
 app.use(express.json());
-app.use(sessionMiddleware);
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Auth Middleware ──
 
 function requireAuth(req, res, next) {
-  if (req.session && req.session.userId) {
-    return next();
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Not authenticated' });
   }
-  res.status(401).json({ error: 'Not authenticated' });
+
+  const token = authHeader.split(' ')[1];
+  const user = db.getUserFromSession(token);
+  
+  if (!user) {
+    return res.status(401).json({ error: 'Invalid or expired session' });
+  }
+
+  req.user = user;
+  req.token = token;
+  next();
 }
 
 // ────────────────────────────────────────────────
@@ -63,12 +60,15 @@ app.post('/api/register', (req, res) => {
 
     const passwordHash = bcrypt.hashSync(password, 10);
     const result = db.createUser(username, passwordHash, displayName || username);
+    const userId = result.lastInsertRowid;
+    
+    const token = db.createSession(userId);
 
-    req.session.userId = result.lastInsertRowid;
     res.json({
       success: true,
+      token,
       user: {
-        id: result.lastInsertRowid,
+        id: userId,
         username,
         displayName: displayName || username,
       },
@@ -92,9 +92,11 @@ app.post('/api/login', (req, res) => {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
-    req.session.userId = user.id;
+    const token = db.createSession(user.id);
+
     res.json({
       success: true,
+      token,
       user: {
         id: user.id,
         username: user.username,
@@ -107,10 +109,9 @@ app.post('/api/login', (req, res) => {
   }
 });
 
-app.get('/api/logout', (req, res) => {
-  req.session.destroy(() => {
-    res.json({ success: true });
-  });
+app.post('/api/logout', requireAuth, (req, res) => {
+  db.deleteSession(req.token);
+  res.json({ success: true });
 });
 
 // ────────────────────────────────────────────────
@@ -118,17 +119,7 @@ app.get('/api/logout', (req, res) => {
 // ────────────────────────────────────────────────
 
 app.get('/api/me', requireAuth, (req, res) => {
-  const user = db.findUserById(req.session.userId);
-  if (!user) {
-    return res.status(404).json({ error: 'User not found' });
-  }
-  res.json({
-    user: {
-      id: user.id,
-      username: user.username,
-      displayName: user.display_name,
-    },
-  });
+  res.json({ user: req.user });
 });
 
 app.get('/api/search', requireAuth, (req, res) => {
@@ -136,12 +127,12 @@ app.get('/api/search', requireAuth, (req, res) => {
   if (!query || query.trim().length < 1) {
     return res.json({ users: [] });
   }
-  const users = db.searchUsers(query.trim(), req.session.userId);
+  const users = db.searchUsers(query.trim(), req.user.id);
   res.json({ users });
 });
 
 app.get('/api/conversations', requireAuth, (req, res) => {
-  const conversations = db.getConversationList(req.session.userId);
+  const conversations = db.getConversationList(req.user.id);
   res.json({ conversations });
 });
 
@@ -150,8 +141,8 @@ app.get('/api/messages/:userId', requireAuth, (req, res) => {
   if (isNaN(partnerId)) {
     return res.status(400).json({ error: 'Invalid user ID' });
   }
-  const messages = db.getMessages(req.session.userId, partnerId);
-  db.markAsRead(req.session.userId, partnerId);
+  const messages = db.getMessages(req.user.id, partnerId);
+  db.markAsRead(req.user.id, partnerId);
   res.json({ messages });
 });
 
@@ -160,7 +151,7 @@ app.post('/api/messages/:userId/read', requireAuth, (req, res) => {
   if (isNaN(partnerId)) {
     return res.status(400).json({ error: 'Invalid user ID' });
   }
-  db.markAsRead(req.session.userId, partnerId);
+  db.markAsRead(req.user.id, partnerId);
   res.json({ success: true });
 });
 
@@ -168,21 +159,22 @@ app.post('/api/messages/:userId/read', requireAuth, (req, res) => {
 //  Socket.IO
 // ────────────────────────────────────────────────
 
-// Share session with Socket.IO
 io.use((socket, next) => {
-  sessionMiddleware(socket.request, {}, next);
+  const token = socket.handshake.auth.token;
+  if (!token) return next(new Error('Authentication error'));
+  
+  const user = db.getUserFromSession(token);
+  if (!user) return next(new Error('Authentication error'));
+  
+  socket.user = user;
+  next();
 });
 
 // Track online users → userId : Set<socketId>
 const onlineUsers = new Map();
 
 io.on('connection', (socket) => {
-  const userId = socket.request.session?.userId;
-
-  if (!userId) {
-    socket.disconnect();
-    return;
-  }
+  const userId = socket.user.id;
 
   // Register this socket
   if (!onlineUsers.has(userId)) {

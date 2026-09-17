@@ -12,11 +12,18 @@
         <!-- ── Sidebar ── -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <div class="user-info">
+                <div class="user-info" id="accountSwitcherBtn" title="Switch Account">
                     <span class="user-avatar" id="userAvatar"></span>
                     <span class="user-name" id="userName"></span>
+                    <span class="dropdown-icon">▼</span>
                 </div>
                 <button class="btn-logout" id="logoutBtn" title="Logout">⏻</button>
+                
+                <!-- Account Dropdown -->
+                <div class="account-dropdown" id="accountDropdown" style="display: none;">
+                    <div id="accountList"></div>
+                    <button class="btn-add-account" id="addAccountBtn">+ Add Account</button>
+                </div>
             </div>
             <div class="search-box">
                 <input type="text" id="searchInput" placeholder="🔍  Search users..." autocomplete="off">

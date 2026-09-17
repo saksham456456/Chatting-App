@@ -77,6 +77,79 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 8px;
+    transition: background 0.2s;
+}
+
+.user-info:hover {
+    background: #f5f5f5;
+}
+
+.dropdown-icon {
+    font-size: 10px;
+    color: #888;
+    margin-left: 2px;
+}
+
+/* ── Account Dropdown ── */
+
+.account-dropdown {
+    position: absolute;
+    top: 60px;
+    left: 16px;
+    background: white;
+    border: 1px solid #e8e8e8;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    width: 250px;
+    z-index: 1000;
+    overflow: hidden;
+}
+
+.account-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background 0.2s;
+}
+
+.account-item:hover {
+    background: #f5f5f5;
+}
+
+.account-item.active {
+    background: #f0f7ff;
+}
+
+.account-item .user-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+}
+
+.account-item .user-name {
+    font-size: 14px;
+    flex: 1;
+}
+
+.btn-add-account {
+    width: 100%;
+    padding: 12px;
+    background: none;
+    border: none;
+    color: #667eea;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-add-account:hover {
+    background: #f5f5f5;
 }
 
 .user-avatar,
