@@ -42,6 +42,9 @@ db.exec(`
     ON messages(created_at);
 `);
 
+try { db.exec('ALTER TABLE users ADD COLUMN avatar_url TEXT'); } catch (err) {}
+try { db.exec('ALTER TABLE users ADD COLUMN bio TEXT'); } catch (err) {}
+
 // ── User Functions ──
 
 function createUser(username, passwordHash, displayName) {
@@ -57,14 +60,22 @@ function findUserByUsername(username) {
 
 function findUserById(id) {
   return db.prepare(
-    'SELECT id, username, display_name, created_at FROM users WHERE id = ?'
+    'SELECT id, username, display_name, avatar_url, bio, created_at FROM users WHERE id = ?'
   ).get(id);
 }
 
 function searchUsers(query, currentUserId) {
   return db.prepare(
-    'SELECT id, username, display_name FROM users WHERE username LIKE ? AND id != ? LIMIT 20'
+    'SELECT id, username, display_name, avatar_url FROM users WHERE username LIKE ? AND id != ? LIMIT 20'
   ).all(`%${query}%`, currentUserId);
+}
+
+function updateUserProfile(id, displayName, bio) {
+  db.prepare('UPDATE users SET display_name = ?, bio = ? WHERE id = ?').run(displayName, bio, id);
+}
+
+function updateUserAvatar(id, avatarUrl) {
+  db.prepare('UPDATE users SET avatar_url = ? WHERE id = ?').run(avatarUrl, id);
 }
 
 // ── Session Functions ──
@@ -77,7 +88,7 @@ function createSession(userId) {
 
 function getUserFromSession(token) {
   return db.prepare(`
-    SELECT u.id, u.username, u.display_name
+    SELECT u.id, u.username, u.display_name, u.avatar_url, u.bio
     FROM sessions s
     JOIN users u ON s.user_id = u.id
     WHERE s.token = ?
@@ -103,9 +114,14 @@ function getMessages(userId1, userId2, limit = 200) {
   return db.prepare(`
     SELECT m.*,
            s.username   AS sender_username,
-           s.display_name AS sender_display_name
+           s.display_name AS sender_display_name,
+           s.avatar_url AS sender_avatar,
+           r.username   AS receiver_username,
+           r.display_name AS receiver_display_name,
+           r.avatar_url AS receiver_avatar
     FROM messages m
     JOIN users s ON m.sender_id = s.id
+    JOIN users r ON m.receiver_id = r.id
     WHERE (m.sender_id = ? AND m.receiver_id = ?)
        OR (m.sender_id = ? AND m.receiver_id = ?)
     ORDER BY m.created_at ASC
@@ -125,6 +141,7 @@ function getConversationList(userId) {
       u.id              AS partner_id,
       u.username        AS partner_username,
       u.display_name    AS partner_display_name,
+      u.avatar_url      AS partner_avatar,
       m.text            AS last_message,
       m.created_at      AS last_message_time,
       m.sender_id       AS last_sender_id,
@@ -159,6 +176,8 @@ module.exports = {
   findUserByUsername,
   findUserById,
   searchUsers,
+  updateUserProfile,
+  updateUserAvatar,
   createSession,
   getUserFromSession,
   deleteSession,

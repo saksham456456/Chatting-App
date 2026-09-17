@@ -54,6 +54,17 @@ const messageForm = document.getElementById('messageForm');
 const messageInput = document.getElementById('messageInput');
 const backBtn = document.getElementById('backBtn');
 
+// Settings Elements
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsModal = document.getElementById('settingsModal');
+const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+const settingsForm = document.getElementById('settingsForm');
+const settingsUsername = document.getElementById('settingsUsername');
+const settingsDisplayName = document.getElementById('settingsDisplayName');
+const settingsBio = document.getElementById('settingsBio');
+const settingsAvatarPreview = document.getElementById('settingsAvatarPreview');
+const avatarUpload = document.getElementById('avatarUpload');
+
 // ────────────────────────────────────────────────
 //  Initialize
 // ────────────────────────────────────────────────
@@ -74,8 +85,7 @@ async function init() {
     }
 
     // Show current user info in sidebar header
-    userAvatarEl.textContent = getInitial(currentUser.displayName);
-    userNameEl.textContent = currentUser.displayName;
+    updateCurrentUserUi();
 
     // Load conversations
     await loadConversations();
@@ -85,6 +95,13 @@ async function init() {
 
     // Bind event listeners
     setupEventListeners();
+}
+
+function updateCurrentUserUi() {
+    const name = currentUser.displayName || currentUser.display_name;
+    const avatar = currentUser.avatarUrl || currentUser.avatar_url;
+    userAvatarEl.innerHTML = getAvatarHtml(name, avatar);
+    userNameEl.textContent = name;
 }
 
 // ────────────────────────────────────────────────
@@ -175,20 +192,102 @@ function connectSocket() {
 // ────────────────────────────────────────────────
 
 function setupEventListeners() {
-    // Logout
-    logoutBtn.addEventListener('click', async () => {
+    // Logout (moved inside settings modal in UI, but keep the listener here)
+    const handleLogout = async () => {
         await apiFetch('/api/logout', { method: 'POST' });
         
-        // Remove active token from session storage
         sessionStorage.removeItem('chatty_active_token');
         
-        // Remove account from vault
         let accounts = JSON.parse(localStorage.getItem('chatty_accounts') || '[]');
         accounts = accounts.filter(a => a.id !== currentUser.id);
         localStorage.setItem('chatty_accounts', JSON.stringify(accounts));
 
         window.location.href = '/';
-    });
+    };
+
+    if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
+
+    // Settings Modal
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', () => {
+            settingsUsername.value = currentUser.username;
+            const name = currentUser.displayName || currentUser.display_name;
+            settingsDisplayName.value = name;
+            settingsBio.value = currentUser.bio || '';
+            
+            const avatarUrl = currentUser.avatarUrl || currentUser.avatar_url;
+            settingsAvatarPreview.innerHTML = getAvatarHtml(name, avatarUrl);
+            
+            settingsModal.style.display = 'flex';
+            accountDropdown.style.display = 'none'; // hide if open
+        });
+    }
+
+    if (closeSettingsBtn) {
+        closeSettingsBtn.addEventListener('click', () => {
+            settingsModal.style.display = 'none';
+        });
+    }
+
+    if (settingsForm) {
+        settingsForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const displayName = settingsDisplayName.value.trim();
+            const bio = settingsBio.value.trim();
+            
+            try {
+                await apiFetch('/api/user/profile', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ displayName, bio })
+                });
+                
+                // Update local state
+                currentUser.display_name = displayName;
+                currentUser.displayName = displayName;
+                currentUser.bio = bio;
+                updateCurrentUserUi();
+                
+                settingsModal.style.display = 'none';
+            } catch (err) {
+                console.error('Failed to update profile:', err);
+                alert('Failed to update profile');
+            }
+        });
+    }
+
+    if (avatarUpload) {
+        avatarUpload.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const formData = new FormData();
+            formData.append('avatar', file);
+            
+            try {
+                // Show loading on avatar preview
+                settingsAvatarPreview.innerHTML = `<span style="font-size:14px;">Uploading...</span>`;
+                
+                const res = await apiFetch('/api/user/avatar', {
+                    method: 'POST',
+                    body: formData // No Content-Type header needed for FormData
+                });
+                const data = await res.json();
+                
+                if (data.avatarUrl) {
+                    currentUser.avatar_url = data.avatarUrl;
+                    currentUser.avatarUrl = data.avatarUrl;
+                    updateCurrentUserUi();
+                    
+                    const name = currentUser.displayName || currentUser.display_name;
+                    settingsAvatarPreview.innerHTML = getAvatarHtml(name, data.avatarUrl);
+                }
+            } catch (err) {
+                console.error('Failed to upload avatar:', err);
+                alert('Failed to upload avatar');
+            }
+        });
+    }
 
     // Account Switcher Dropdown
     accountSwitcherBtn.addEventListener('click', (e) => {
@@ -286,7 +385,7 @@ function renderAccountDropdown() {
         el.className = `account-item ${acc.id === currentUser.id ? 'active' : ''}`;
         
         el.innerHTML = `
-            <div class="user-avatar">${getInitial(acc.displayName)}</div>
+            <div class="user-avatar">${getAvatarHtml(acc.displayName, acc.avatar_url || acc.avatarUrl)}</div>
             <div class="user-name">${escapeHtml(acc.displayName)} <span style="color:#999;font-size:12px;">@${escapeHtml(acc.username)}</span></div>
         `;
 
@@ -433,35 +532,42 @@ function updateConversationWithMessage(msg) {
 
 function renderSearchResults(users) {
     conversationListEl.innerHTML = '';
-
+    
     if (users.length === 0) {
-        conversationListEl.innerHTML = `
-            <div class="empty-state"><p>No users found.</p></div>`;
+        conversationListEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">No users found</div>';
         return;
     }
 
     users.forEach((user) => {
         const el = document.createElement('div');
         el.className = 'search-result-item';
-        const initial = getInitial(user.display_name);
 
         el.innerHTML = `
-            <div class="search-avatar">${initial}</div>
-            <div>
-                <div class="search-name">${escapeHtml(user.display_name)}</div>
-                <div class="search-username">@${escapeHtml(user.username)}</div>
-            </div>`;
+            <div class="search-avatar">${getAvatarHtml(user.display_name, user.avatar_url)}</div>
+            <div class="search-info">
+                <span class="search-name">${escapeHtml(
+                    user.display_name
+                )}</span>
+                <span class="search-username">@${escapeHtml(
+                    user.username
+                )}</span>
+            </div>
+        `;
 
         el.addEventListener('click', () => {
             searchInput.value = '';
             isSearching = false;
+
             openChat({
                 id: user.id,
                 username: user.username,
                 displayName: user.display_name,
+                avatarUrl: user.avatar_url
             });
-        });
 
+            renderConversations();
+        });
+        
         conversationListEl.appendChild(el);
     });
 }
@@ -474,7 +580,7 @@ async function openChat(partner) {
     activeChat = partner;
 
     // Update chat header
-    partnerAvatarEl.textContent = getInitial(partner.displayName);
+    partnerAvatarEl.innerHTML = getAvatarHtml(partner.displayName, partner.avatar_url || partner.avatarUrl);
     partnerNameEl.textContent = partner.displayName;
     updatePartnerStatus();
 
@@ -625,10 +731,16 @@ function getInitial(name) {
     return name ? name.charAt(0).toUpperCase() : '?';
 }
 
-function escapeHtml(text) {
+function escapeHtml(str) {
+    if (!str) return '';
     const div = document.createElement('div');
-    div.textContent = text;
+    div.textContent = str;
     return div.innerHTML;
+}
+
+function getAvatarHtml(name, url) {
+    if (url) return `<img src="${url}" class="avatar-img" alt="avatar">`;
+    return getInitial(name);
 }
 
 function scrollToBottom() {

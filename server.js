@@ -3,11 +3,31 @@ const http = require('http');
 const { Server } = require('socket.io');
 const bcrypt = require('bcryptjs');
 const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const db = require('./database');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
+
+// ── Setup Uploads ──
+const uploadDir = path.join(__dirname, 'public', 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: uploadDir,
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `avatar_${req.user.id}_${Date.now()}${ext}`);
+  }
+});
+const upload = multer({ 
+  storage, 
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
+});
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -120,6 +140,24 @@ app.post('/api/logout', requireAuth, (req, res) => {
 
 app.get('/api/me', requireAuth, (req, res) => {
   res.json({ user: req.user });
+});
+
+app.put('/api/user/profile', requireAuth, (req, res) => {
+  const { displayName, bio } = req.body;
+  if (!displayName || displayName.trim().length < 1) {
+    return res.status(400).json({ error: 'Display name is required' });
+  }
+  db.updateUserProfile(req.user.id, displayName.trim(), bio ? bio.trim() : null);
+  res.json({ success: true });
+});
+
+app.post('/api/user/avatar', requireAuth, upload.single('avatar'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+  const avatarUrl = `/uploads/${req.file.filename}`;
+  db.updateUserAvatar(req.user.id, avatarUrl);
+  res.json({ success: true, avatarUrl });
 });
 
 app.get('/api/search', requireAuth, (req, res) => {
