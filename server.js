@@ -203,15 +203,17 @@ io.on('connection', (socket) => {
     const { receiverId, text } = data;
     if (!text || !text.trim() || !receiverId) return;
 
-    // Sanitize to prevent XSS
-    const clean = text.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // Validate message length
+    const trimmed = text.trim();
+    if (trimmed.length > 5000) return;
 
-    // Save to database
-    const message = db.saveMessage(userId, receiverId, clean);
-
-    // Include user info so clients can update their conversation lists
+    // Validate that receiver exists
     const sender = db.findUserById(userId);
     const receiver = db.findUserById(receiverId);
+    if (!sender || !receiver) return;
+
+    // Save raw text — XSS prevention is handled client-side via textContent
+    const message = db.saveMessage(userId, receiverId, trimmed);
 
     const payload = {
       id: message.id,

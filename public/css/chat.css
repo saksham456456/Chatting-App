@@ -11,6 +11,39 @@ body {
     background: #f0f2f5;
 }
 
+/* ── Connection Status Bar ── */
+
+.connection-status {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: #ff9800;
+    color: white;
+    padding: 6px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+    from { transform: translateY(-100%); }
+    to   { transform: translateY(0); }
+}
+
+/* ── Loading ── */
+
+.loading {
+    padding: 40px 20px;
+    text-align: center;
+    color: #999;
+    font-size: 14px;
+}
+
 /* ── App Layout ── */
 
 .app {

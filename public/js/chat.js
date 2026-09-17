@@ -69,6 +69,18 @@ async function init() {
 function connectSocket() {
     socket = io();
 
+    socket.on('connect', () => {
+        hideConnectionStatus();
+    });
+
+    socket.on('disconnect', () => {
+        showConnectionStatus('Reconnecting...');
+    });
+
+    socket.on('reconnect_attempt', () => {
+        showConnectionStatus('Reconnecting...');
+    });
+
     // Receive a private message
     socket.on('private message', (msg) => {
         const partnerId =
@@ -196,6 +208,7 @@ function setupEventListeners() {
 
 async function loadConversations() {
     try {
+        showLoading(conversationListEl);
         const res = await fetch('/api/conversations');
         const data = await res.json();
         conversations = data.conversations;
@@ -369,6 +382,7 @@ async function openChat(partner) {
     appEl.classList.add('chat-active');
 
     // Load message history
+    showLoading(messagesEl);
     try {
         const res = await fetch(`/api/messages/${partner.id}`);
         const data = await res.json();
@@ -393,7 +407,7 @@ function renderMessages(messages) {
     let lastDate = '';
 
     messages.forEach((msg) => {
-        const msgDate = new Date(msg.created_at).toLocaleDateString();
+        const msgDate = parseDate(msg.created_at).toLocaleDateString();
 
         // Insert a date separator when the day changes
         if (msgDate !== lastDate) {
@@ -418,15 +432,22 @@ function appendMessage(msg) {
     const el = document.createElement('div');
     el.className = `message ${isSent ? 'sent' : 'received'}`;
 
-    const time = new Date(msg.created_at).toLocaleTimeString([], {
+    const time = parseDate(msg.created_at).toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit',
     });
 
-    el.innerHTML = `
-        <div class="msg-text">${msg.text}</div>
-        <div class="msg-time">${time}</div>`;
+    // Build structure with textContent for user text (prevents XSS safely)
+    const textDiv = document.createElement('div');
+    textDiv.className = 'msg-text';
+    textDiv.textContent = msg.text;
 
+    const timeDiv = document.createElement('div');
+    timeDiv.className = 'msg-time';
+    timeDiv.textContent = time;
+
+    el.appendChild(textDiv);
+    el.appendChild(timeDiv);
     messagesEl.appendChild(el);
 }
 
@@ -566,6 +587,35 @@ function parseDate(dateString) {
     }
     // SQLite format "YYYY-MM-DD HH:MM:SS" — treat as UTC
     return new Date(dateString.replace(' ', 'T') + 'Z');
+}
+
+// ────────────────────────────────────────────────
+//  Connection Status
+// ────────────────────────────────────────────────
+
+function showConnectionStatus(text) {
+    let bar = document.getElementById('connectionStatus');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'connectionStatus';
+        bar.className = 'connection-status';
+        document.body.prepend(bar);
+    }
+    bar.textContent = text;
+    bar.style.display = 'flex';
+}
+
+function hideConnectionStatus() {
+    const bar = document.getElementById('connectionStatus');
+    if (bar) bar.style.display = 'none';
+}
+
+// ────────────────────────────────────────────────
+//  Loading Indicator
+// ────────────────────────────────────────────────
+
+function showLoading(container) {
+    container.innerHTML = '<div class="loading">Loading...</div>';
 }
 
 // ── Start ──
