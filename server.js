@@ -142,7 +142,15 @@ app.get('/api/messages/:userId', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'Invalid user ID' });
   }
   const messages = db.getMessages(req.user.id, partnerId);
-  db.markAsRead(req.user.id, partnerId);
+  const changes = db.markAsRead(req.user.id, partnerId);
+  
+  if (changes > 0) {
+    const sockets = onlineUsers.get(partnerId);
+    if (sockets) {
+      sockets.forEach(sid => io.to(sid).emit('messages read', req.user.id));
+    }
+  }
+  
   res.json({ messages });
 });
 
@@ -151,7 +159,15 @@ app.post('/api/messages/:userId/read', requireAuth, (req, res) => {
   if (isNaN(partnerId)) {
     return res.status(400).json({ error: 'Invalid user ID' });
   }
-  db.markAsRead(req.user.id, partnerId);
+  
+  const changes = db.markAsRead(req.user.id, partnerId);
+  if (changes > 0) {
+    const sockets = onlineUsers.get(partnerId);
+    if (sockets) {
+      sockets.forEach(sid => io.to(sid).emit('messages read', req.user.id));
+    }
+  }
+  
   res.json({ success: true });
 });
 
@@ -212,6 +228,7 @@ io.on('connection', (socket) => {
       sender_id: message.sender_id,
       receiver_id: message.receiver_id,
       text: message.text,
+      read: message.read,
       created_at: message.created_at,
       sender_username: sender.username,
       sender_display_name: sender.display_name,

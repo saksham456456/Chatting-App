@@ -467,10 +467,29 @@ body {
     color: #999;
     text-align: right;
     margin-top: 2px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 4px;
 }
 
 .message.sent .msg-time {
     color: #7cb382;
+}
+
+.msg-status {
+    font-size: 10px;
+    letter-spacing: -1px;
+    color: #999;
+}
+
+.message.sent .msg-status {
+    color: #7cb382;
+}
+
+.message.sent .msg-status.read {
+    color: #4caf50;
+    font-weight: bold;
 }
 
 /* Date separator */

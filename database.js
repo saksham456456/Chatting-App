@@ -146,9 +146,10 @@ function getConversationList(userId) {
 }
 
 function markAsRead(currentUserId, partnerId) {
-  return db.prepare(
+  const info = db.prepare(
     'UPDATE messages SET read = 1 WHERE sender_id = ? AND receiver_id = ? AND read = 0'
   ).run(partnerId, currentUserId);
+  return info.changes;
 }
 
 // ── Exports ──

@@ -18,7 +18,16 @@ if (!authToken) {
 // Wrapper for fetch to inject token
 async function apiFetch(url, options = {}) {
     const headers = { ...options.headers, 'Authorization': `Bearer ${authToken}` };
-    return fetch(url, { ...options, headers });
+    const res = await fetch(url, { ...options, headers });
+    
+    // Fix: If token is invalid/expired, clear it and go to login to prevent infinite loops
+    if (res.status === 401) {
+        sessionStorage.removeItem('chatty_active_token');
+        window.location.href = '/';
+        throw new Error('Unauthorized');
+    }
+    
+    return res;
 }
 
 // ────────────────────────────────────────────────
@@ -147,6 +156,16 @@ function connectSocket() {
     socket.on('stop typing', (userId) => {
         if (activeChat && activeChat.id === userId) {
             hideTypingIndicator();
+        }
+    });
+
+    // Read Receipts
+    socket.on('messages read', (readerId) => {
+        if (activeChat && activeChat.id === readerId) {
+            document.querySelectorAll('.msg-status:not(.read)').forEach(el => {
+                el.classList.add('read');
+                el.textContent = '✓✓';
+            });
         }
     });
 }
@@ -525,9 +544,14 @@ function appendMessage(msg) {
     textDiv.className = 'msg-text';
     textDiv.textContent = msg.text;
 
+    let statusHtml = '';
+    if (isSent) {
+        statusHtml = `<span class="msg-status ${msg.read ? 'read' : ''}">${msg.read ? '✓✓' : '✓'}</span>`;
+    }
+
     const timeDiv = document.createElement('div');
     timeDiv.className = 'msg-time';
-    timeDiv.textContent = time;
+    timeDiv.innerHTML = `<span>${time}</span> ${statusHtml}`;
 
     el.appendChild(textDiv);
     el.appendChild(timeDiv);
