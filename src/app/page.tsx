@@ -26,6 +26,29 @@ export default function AuthPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // Username availability
+  const [usernameAvailable, setUsernameAvailable] = useState<null | boolean>(null)
+  const [checkingUsername, setCheckingUsername] = useState(false)
+  const [suggestedUsernames, setSuggestedUsernames] = useState<string[]>([])
+
+  const generateRandomUsername = () => {
+    const adjectives = ['swift', 'cool', 'dark', 'bright', 'calm', 'bold', 'keen', 'fast', 'wild', 'warm', 'epic', 'neon', 'nova', 'sky', 'zen']
+    const nouns = ['fox', 'wolf', 'hawk', 'lynx', 'panda', 'tiger', 'eagle', 'otter', 'raven', 'cobra', 'pixel', 'byte', 'node', 'spark', 'blaze']
+    const adj = adjectives[Math.floor(Math.random() * adjectives.length)]
+    const noun = nouns[Math.floor(Math.random() * nouns.length)]
+    const num = Math.floor(Math.random() * 999)
+    return `${adj}_${noun}${num}`
+  }
+
+  const generateSuggestions = (base: string) => {
+    const suggestions: string[] = []
+    for (let i = 0; i < 3; i++) {
+      suggestions.push(`${base}${Math.floor(Math.random() * 9999)}`)
+    }
+    suggestions.push(generateRandomUsername())
+    return suggestions
+  }
+
   // Initialize vault on load
   useEffect(() => {
     const saved = localStorage.getItem('chatty_vault')
@@ -37,6 +60,33 @@ export default function AuthPage() {
       setMode('login')
     }
   }, [])
+
+  // Check username availability (debounced)
+  useEffect(() => {
+    if (mode !== 'register' || !username.trim() || username.trim().length < 3) {
+      setUsernameAvailable(null)
+      setSuggestedUsernames([])
+      return
+    }
+    setCheckingUsername(true)
+    const timer = setTimeout(async () => {
+      const clean = username.trim().toLowerCase()
+      const { data } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', clean)
+        .limit(1)
+      if (data && data.length > 0) {
+        setUsernameAvailable(false)
+        setSuggestedUsernames(generateSuggestions(clean))
+      } else {
+        setUsernameAvailable(true)
+        setSuggestedUsernames([])
+      }
+      setCheckingUsername(false)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [username, mode])
 
   const saveToVault = async (session: any, user: any) => {
     // Fetch profile to get display name and avatar
@@ -152,7 +202,7 @@ export default function AuthPage() {
           <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-white text-3xl">💬</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Chatty v2</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Chatty</h1>
           <p className="text-gray-500 mt-1">Real-time messaging, reimagined.</p>
         </div>
 
@@ -253,18 +303,64 @@ export default function AuthPage() {
         {mode === 'register' && (
           <form onSubmit={handleRegister} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-              <input
-                type="text"
-                required
-                minLength={3}
-                pattern="^[a-zA-Z0-9_]+$"
-                title="Only letters, numbers, and underscores"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                placeholder="bob_smith"
-              />
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-sm font-medium text-gray-700">Username</label>
+                <button
+                  type="button"
+                  onClick={() => setUsername(generateRandomUsername())}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  🎲 Random
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  type="text"
+                  required
+                  minLength={3}
+                  pattern="^[a-zA-Z0-9_]+$"
+                  title="Only letters, numbers, and underscores"
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  className={`w-full px-4 py-2 pr-10 border rounded-xl focus:ring-2 outline-none ${
+                    usernameAvailable === true ? 'border-green-400 focus:ring-green-500/20' :
+                    usernameAvailable === false ? 'border-red-400 focus:ring-red-500/20' :
+                    'border-gray-300 focus:ring-blue-500'
+                  }`}
+                  placeholder="choose_a_username"
+                />
+                {username.trim().length >= 3 && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {checkingUsername ? (
+                      <span className="text-gray-400 text-xs animate-pulse">...</span>
+                    ) : usernameAvailable === true ? (
+                      <span className="text-green-500">✓</span>
+                    ) : usernameAvailable === false ? (
+                      <span className="text-red-500">✗</span>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+              {username.trim().length >= 3 && !checkingUsername && usernameAvailable === true && (
+                <p className="text-xs text-green-600 mt-1">@{username.trim().toLowerCase()} is available!</p>
+              )}
+              {username.trim().length >= 3 && !checkingUsername && usernameAvailable === false && (
+                <div className="mt-2">
+                  <p className="text-xs text-red-600">@{username.trim().toLowerCase()} is taken. Try:</p>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {suggestedUsernames.map(s => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setUsername(s)}
+                        className="text-xs bg-gray-100 hover:bg-blue-50 hover:text-blue-700 text-gray-600 px-2 py-1 rounded-lg border border-gray-200"
+                      >
+                        @{s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
@@ -290,7 +386,7 @@ export default function AuthPage() {
             </div>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || usernameAvailable === false || checkingUsername}
               className="w-full bg-blue-600 text-white py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
               {loading ? 'Creating account...' : 'Sign Up'}
