@@ -10,7 +10,7 @@ let onlineUserIds = new Set();
 let isSearching = false;
 
 // ── Auth Token ──
-const authToken = sessionStorage.getItem('chatty_active_token');
+const authToken = localStorage.getItem('chatty_active_token');
 if (!authToken) {
     window.location.href = '/';
 }
@@ -22,7 +22,7 @@ async function apiFetch(url, options = {}) {
     
     // Fix: If token is invalid/expired, clear it and go to login to prevent infinite loops
     if (res.status === 401) {
-        sessionStorage.removeItem('chatty_active_token');
+        localStorage.removeItem('chatty_active_token');
         window.location.href = '/';
         throw new Error('Unauthorized');
     }
@@ -196,7 +196,7 @@ function setupEventListeners() {
     const handleLogout = async () => {
         await apiFetch('/api/logout', { method: 'POST' });
         
-        sessionStorage.removeItem('chatty_active_token');
+        localStorage.removeItem('chatty_active_token');
         
         let accounts = JSON.parse(localStorage.getItem('chatty_accounts') || '[]');
         accounts = accounts.filter(a => a.id !== currentUser.id);
@@ -291,30 +291,6 @@ function setupEventListeners() {
         });
     }
 
-    // Account Switcher Dropdown
-    accountSwitcherBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isVisible = accountDropdown.style.display === 'block';
-        accountDropdown.style.display = isVisible ? 'none' : 'block';
-        if (!isVisible) {
-            renderAccountDropdown();
-        }
-    });
-
-    // Close dropdown when clicking outside
-    document.addEventListener('click', (e) => {
-        if (!accountDropdown.contains(e.target) && !accountSwitcherBtn.contains(e.target)) {
-            accountDropdown.style.display = 'none';
-        }
-    });
-
-    // Add Account button
-    addAccountBtn.addEventListener('click', () => {
-        // Just go to index.html without a token in sessionStorage
-        // The vault remains in localStorage
-        sessionStorage.removeItem('chatty_active_token');
-        window.location.href = '/';
-    });
 
     // Search (debounced)
     let searchTimeout;
@@ -397,7 +373,7 @@ function renderAccountDropdown() {
                 return;
             }
             // Switch active token and reload
-            sessionStorage.setItem('chatty_active_token', acc.token);
+            localStorage.setItem('chatty_active_token', acc.token);
             window.location.reload();
         });
 

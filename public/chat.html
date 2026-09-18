@@ -11,19 +11,21 @@
 
         <!-- ── Sidebar ── -->
         <aside class="sidebar">
-            <div class="sidebar-header">
-                <div class="user-info" id="accountSwitcherBtn" title="Switch Account">
-                    <span class="user-avatar" id="userAvatar"></span>
-                    <span class="user-name" id="userName"></span>
-                    <span class="dropdown-icon">▼</span>
+            <div class="header-content">
+                <div class="user-info" id="currentUserProfile">
+                    <div class="avatar" id="myAvatar">?</div>
+                    <div>
+                        <div class="name" id="myName">Loading...</div>
+                        <div class="status">Online</div>
+                    </div>
                 </div>
-                <button class="btn-icon" id="settingsBtn" title="Settings">⚙️</button>
-                
-                <!-- Account Dropdown -->
-                <div class="account-dropdown" id="accountDropdown" style="display: none;">
-                    <div id="accountList"></div>
-                    <button class="btn-add-account" id="addAccountBtn">+ Add Account</button>
-                </div>
+                <button class="icon-btn logout-btn" id="logoutBtn" title="Log Out">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                </button>
             </div>
             
             <!-- Settings Modal -->

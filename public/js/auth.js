@@ -123,62 +123,19 @@ registerForm.addEventListener('submit', async (e) => {
     }
 });
 
-// ── Multi-Account Logic ──
+// 🔑 Core Auth Logic 🔑
 
 function saveAccountAndRedirect(user, token) {
-    // Save to local vault
-    const accounts = JSON.parse(localStorage.getItem('chatty_accounts') || '[]');
-    // Remove if already exists to update token
-    const filtered = accounts.filter(a => a.id !== user.id);
-    filtered.push({ ...user, token });
-    localStorage.setItem('chatty_accounts', JSON.stringify(filtered));
-
-    // Set active for this tab
-    sessionStorage.setItem('chatty_active_token', token);
-    
+    // Just save the active session token to local storage so they stay logged in
+    localStorage.setItem('chatty_active_token', token);
     window.location.href = '/chat.html';
 }
 
-// ── Auto-redirect / Account Chooser ──
+// 🚀 Auto-redirect 🚀
 
 (async () => {
-    // If this tab already has an active session, redirect
-    if (sessionStorage.getItem('chatty_active_token')) {
+    // If user is already logged in, skip the login page and go straight to chat
+    if (localStorage.getItem('chatty_active_token')) {
         window.location.href = '/chat.html';
-        return;
-    }
-
-    // Check if there are saved accounts in the local vault
-    const accounts = JSON.parse(localStorage.getItem('chatty_accounts') || '[]');
-    if (accounts.length > 0) {
-        // Show account chooser
-        document.getElementById('accountChooserCard').style.display = 'block';
-        document.getElementById('mainTitle').style.display = 'none';
-        document.getElementById('mainSubtitle').textContent = 'Or log into another account';
-        
-        const list = document.getElementById('savedAccountsList');
-        list.innerHTML = '';
-        
-        accounts.forEach(acc => {
-            const el = document.createElement('div');
-            el.className = 'saved-account-item';
-            
-            const initial = acc.displayName ? acc.displayName.charAt(0).toUpperCase() : '?';
-            
-            el.innerHTML = `
-                <div class="user-avatar">${initial}</div>
-                <div class="user-details">
-                    <div class="user-name">${acc.displayName}</div>
-                    <div class="user-username">@${acc.username}</div>
-                </div>
-            `;
-            
-            el.addEventListener('click', () => {
-                sessionStorage.setItem('chatty_active_token', acc.token);
-                window.location.href = '/chat.html';
-            });
-            
-            list.appendChild(el);
-        });
     }
 })();
