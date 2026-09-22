@@ -51,6 +51,7 @@ interface ChatState {
   addMessage: (message: Message) => void
   setOnlineUsers: (users: Set<string>) => void
   setTypingUsers: (chatId: string, users: Set<string>) => void
+  setAllTypingUsers: (typingData: Record<string, Set<string>>) => void
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -94,5 +95,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   setTypingUsers: (chatId, users) => set((state) => ({
     typingUsers: { ...state.typingUsers, [chatId]: users }
-  }))
+  })),
+  
+  setAllTypingUsers: (typingData) => set({ typingUsers: typingData })
 }))

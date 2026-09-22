@@ -70,13 +70,9 @@ export function useSupabaseSync() {
         setOnlineUsers(online)
         
         // Update typing states in Zustand
+        // Completely replace the typing map so stale typers are removed
         const chatStore = useChatStore.getState()
-        // Simplistic approach: we just overwrite the ones we found. 
-        // A full implementation would carefully merge/remove, 
-        // but replacing works for our simple state shape if we iterate over all chats.
-        for (const chatId of Object.keys(typing)) {
-          chatStore.setTypingUsers(chatId, typing[chatId])
-        }
+        chatStore.setAllTypingUsers(typing)
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {

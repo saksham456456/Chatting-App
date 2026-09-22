@@ -18,7 +18,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true)
 
   // Initialize sync (will only run when currentUser is set)
-  useSupabaseSync()
+  const { broadcastTyping } = useSupabaseSync()
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -56,7 +56,7 @@ export default function ChatPage() {
   return (
     <div className="flex h-screen bg-white dark:bg-slate-900 overflow-hidden font-sans">
       <Sidebar onOpenSettings={() => setIsProfileModalOpen(true)} />
-      <ChatContainer />
+      <ChatContainer broadcastTyping={broadcastTyping} />
       
       {isProfileModalOpen && (
         <ProfileModal onClose={() => setIsProfileModalOpen(false)} />

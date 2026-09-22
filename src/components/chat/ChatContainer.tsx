@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
 import { useChatStore } from '@/store/useChatStore'
 import { ChatHeader } from './ChatHeader'
 import { MessageList } from './MessageList'
@@ -6,7 +6,11 @@ import { ChatInput } from './ChatInput'
 import { createClient } from '@/lib/supabase/client'
 import { v4 as uuidv4 } from 'uuid'
 
-export function ChatContainer() {
+interface ChatContainerProps {
+  broadcastTyping?: (chatId: string, isTyping: boolean) => void
+}
+
+export function ChatContainer({ broadcastTyping }: ChatContainerProps) {
   const { 
     currentUser, 
     chats, 
@@ -19,6 +23,7 @@ export function ChatContainer() {
   } = useChatStore()
   
   const supabase = createClient()
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // This prevents us from showing "Select a chat" if mobile user presses back
   const chat = chats.find(c => c.chat_id === activeChatId)
@@ -42,11 +47,15 @@ export function ChatContainer() {
       // Update our last read receipt
       if (data && data.length > 0) {
         const lastMsgId = data[data.length - 1].id
-        await supabase
+        const { error } = await supabase
           .from('chat_participants')
           .update({ last_read_message_id: lastMsgId })
           .eq('chat_id', activeChatId)
           .eq('user_id', currentUser.id)
+        
+        if (error) {
+          console.error('Failed to update read receipt:', error)
+        }
       }
     }
     
@@ -63,6 +72,7 @@ export function ChatContainer() {
       </div>
     )
   }
+  
   const isOnline = chat.partner_id ? onlineUsers.has(chat.partner_id) : false
   const isTyping = chat.partner_id && activeChatId ? (typingUsers[activeChatId]?.has(chat.partner_id) || false) : false
 
@@ -74,10 +84,15 @@ export function ChatContainer() {
       const ext = file.name.split('.').pop()
       const filePath = `${currentUser.id}/${uuidv4()}.${ext}`
       const { error } = await supabase.storage.from('chat_attachments').upload(filePath, file)
-      if (!error) {
-        const { data: { publicUrl } } = supabase.storage.from('chat_attachments').getPublicUrl(filePath)
-        image_url = publicUrl
+      
+      if (error) {
+        console.error('Upload failed:', error)
+        alert('File upload failed. Please try again.')
+        return
       }
+      
+      const { data: { publicUrl } } = supabase.storage.from('chat_attachments').getPublicUrl(filePath)
+      image_url = publicUrl
     }
 
     const newMessage = {
@@ -93,17 +108,29 @@ export function ChatContainer() {
     addMessage(newMessage)
 
     // Actually insert to DB
-    await supabase.from('messages').insert({
+    const { error: insertError } = await supabase.from('messages').insert({
       id: newMessage.id,
       chat_id: activeChatId,
+      sender_id: currentUser.id, // Fixed: Added sender_id for RLS and DB requirements
       text,
       image_url
     })
+    
+    if (insertError) {
+      console.error('Failed to send message:', insertError)
+    }
   }
 
   const handleTyping = () => {
-    const channel = supabase.channel('chatty_presence')
-    channel.track({ user_id: currentUser.id, typing_in: activeChatId })
+    if (!activeChatId || !broadcastTyping) return
+    
+    broadcastTyping(activeChatId, true)
+    
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+    
+    typingTimeoutRef.current = setTimeout(() => {
+      broadcastTyping(activeChatId, false)
+    }, 1500)
   }
 
   return (
