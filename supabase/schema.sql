@@ -1,6 +1,8 @@
--- Chatty v2 Supabase Schema
+-- Chatty v2 Supabase Schema (Hardened)
 
--- Profiles
+-- ==========================================
+-- 1. PROFILES
+-- ==========================================
 create table if not exists profiles (
   id uuid references auth.users not null primary key,
   updated_at timestamp with time zone,
@@ -12,12 +14,14 @@ create table if not exists profiles (
 );
 
 alter table profiles enable row level security;
-
 create policy "Public profiles are viewable by everyone." on profiles for select using (true);
 create policy "Users can insert their own profile." on profiles for insert with check (auth.uid() = id);
 create policy "Users can update own profile." on profiles for update using (auth.uid() = id);
+-- Notice: No DELETE policy. Users cannot delete profiles from the client API.
 
--- Chats
+-- ==========================================
+-- 2. CHATS
+-- ==========================================
 create table if not exists chats (
   id uuid default gen_random_uuid() primary key,
   type text not null check (type in ('direct', 'group')),
@@ -30,14 +34,17 @@ alter table chats enable row level security;
 create policy "Users can view chats they participate in." on chats for select using (
   exists (select 1 from chat_participants cp where cp.chat_id = chats.id and cp.user_id = auth.uid())
 );
-create policy "Users can create chats." on chats for insert with check (true);
+-- Notice: No INSERT, UPDATE, or DELETE policies! 
+-- Chat creation is strictly locked down and only allowed via secure RPCs (start_direct_chat).
 
--- Chat Participants
+-- ==========================================
+-- 3. CHAT PARTICIPANTS
+-- ==========================================
 create table if not exists chat_participants (
   chat_id uuid references chats(id) on delete cascade not null,
   user_id uuid references profiles(id) on delete cascade not null,
   joined_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  last_read_message_id uuid, -- will reference messages(id) later, but no hard FK to avoid circular dependencies
+  last_read_message_id uuid,
   primary key (chat_id, user_id)
 );
 
@@ -45,10 +52,13 @@ alter table chat_participants enable row level security;
 create policy "Users can view participants of their chats." on chat_participants for select using (
   exists (select 1 from chat_participants cp where cp.chat_id = chat_participants.chat_id and cp.user_id = auth.uid())
 );
-create policy "Users can insert participants." on chat_participants for insert with check (true);
 create policy "Users can update their own participant record (last_read)." on chat_participants for update using (auth.uid() = user_id);
+-- Notice: No INSERT policy! 
+-- A malicious user cannot force you into a chat. It is handled entirely by the secure RPC.
 
--- Messages
+-- ==========================================
+-- 4. MESSAGES
+-- ==========================================
 create table if not exists messages (
   id uuid default gen_random_uuid() primary key,
   chat_id uuid references chats(id) on delete cascade not null,
@@ -59,19 +69,24 @@ create table if not exists messages (
 );
 
 alter table messages enable row level security;
-
 create policy "Users can read messages in their chats" on messages for select using (
   exists (select 1 from chat_participants cp where cp.chat_id = messages.chat_id and cp.user_id = auth.uid())
 );
 create policy "Users can insert messages in their chats" on messages for insert with check (
-  exists (select 1 from chat_participants cp where cp.chat_id = messages.chat_id and cp.user_id = auth.uid()) and auth.uid() = sender_id
+  exists (select 1 from chat_participants cp where cp.chat_id = messages.chat_id and cp.user_id = auth.uid()) 
+  and auth.uid() = sender_id
 );
+-- Notice: No UPDATE or DELETE policies (yet). Immutable messages.
 
--- Realtime: Enable realtime broadcasts on messages table and chat_participants (for read receipts)
+-- ==========================================
+-- 5. REALTIME PUBLICATIONS
+-- ==========================================
 alter publication supabase_realtime add table messages;
 alter publication supabase_realtime add table chat_participants;
 
--- Trigger for new users
+-- ==========================================
+-- 6. AUTH TRIGGERS
+-- ==========================================
 create or replace function public.handle_new_user()
 returns trigger as $$
 declare
@@ -89,7 +104,53 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- RPC Function to get conversation list
+-- ==========================================
+-- 7. SECURE RPC FUNCTIONS
+-- ==========================================
+create or replace function start_direct_chat(partner_id uuid)
+returns uuid as $$
+declare
+  existing_chat_id uuid;
+  new_chat_id uuid;
+begin
+  select c.id into existing_chat_id
+  from chats c
+  join chat_participants cp1 on cp1.chat_id = c.id
+  join chat_participants cp2 on cp2.chat_id = c.id
+  where c.type = 'direct'
+    and cp1.user_id = auth.uid()
+    and cp2.user_id = partner_id
+  limit 1;
+
+  if existing_chat_id is not null then
+    return existing_chat_id;
+  end if;
+
+  insert into chats (type) values ('direct') returning id into new_chat_id;
+  insert into chat_participants (chat_id, user_id) values (new_chat_id, auth.uid());
+  insert into chat_participants (chat_id, user_id) values (new_chat_id, partner_id);
+
+  return new_chat_id;
+end;
+$$ language plpgsql security definer;
+
+create or replace function search_users(search_query text)
+returns table (
+  id uuid,
+  username text,
+  display_name text,
+  avatar_url text
+) as $$
+begin
+  return query
+  select p.id, p.username, p.display_name, p.avatar_url
+  from profiles p
+  where p.id != auth.uid()
+    and (p.username ilike '%' || search_query || '%' or p.display_name ilike '%' || search_query || '%')
+  limit 20;
+end;
+$$ language plpgsql security definer;
+
 create or replace function get_conversations(current_user_id uuid)
 returns table (
   chat_id uuid,
@@ -138,10 +199,8 @@ begin
     ) as partner_last_read_time
   from chats c
   join chat_participants cp on cp.chat_id = c.id and cp.user_id = current_user_id
-  -- Join to find the direct message partner
   left join chat_participants cp2 on cp2.chat_id = c.id and cp2.user_id != current_user_id and c.type = 'direct'
   left join profiles p on p.id = cp2.user_id
-  -- Join to get the latest message
   left join lateral (
     select text, created_at, sender_id
     from messages m2
@@ -152,7 +211,10 @@ begin
   order by coalesce(m.created_at, c.created_at) desc;
 end;
 $$ language plpgsql security definer;
--- Storage Buckets and Policies
+
+-- ==========================================
+-- 8. STORAGE BUCKETS & POLICIES
+-- ==========================================
 insert into storage.buckets (id, name, public) 
 values ('avatars', 'avatars', true)
 on conflict (id) do nothing;
@@ -167,53 +229,3 @@ create policy "Users can update their own avatar." on storage.objects for update
 
 create policy "Chat attachments are publicly accessible." on storage.objects for select using (bucket_id = 'chat_attachments');
 create policy "Users can upload chat attachments." on storage.objects for insert with check (bucket_id = 'chat_attachments' and (storage.foldername(name))[1] = auth.uid()::text);
-
--- RPC Function to start a direct chat
-create or replace function start_direct_chat(partner_id uuid)
-returns uuid as $body
-declare
-  existing_chat_id uuid;
-  new_chat_id uuid;
-begin
-  -- Check if a direct chat already exists between these two users
-  select c.id into existing_chat_id
-  from chats c
-  join chat_participants cp1 on cp1.chat_id = c.id
-  join chat_participants cp2 on cp2.chat_id = c.id
-  where c.type = 'direct'
-    and cp1.user_id = auth.uid()
-    and cp2.user_id = partner_id
-  limit 1;
-
-  if existing_chat_id is not null then
-    return existing_chat_id;
-  end if;
-
-  -- Create a new chat
-  insert into chats (type) values ('direct') returning id into new_chat_id;
-
-  -- Insert participants
-  insert into chat_participants (chat_id, user_id) values (new_chat_id, auth.uid());
-  insert into chat_participants (chat_id, user_id) values (new_chat_id, partner_id);
-
-  return new_chat_id;
-end;
-$body language plpgsql security definer;
-
--- RPC Function to search users
-create or replace function search_users(search_query text)
-returns table (
-  id uuid,
-  username text,
-  display_name text,
-  avatar_url text
-) as $body
-begin
-  return query
-  select p.id, p.username, p.display_name, p.avatar_url
-  from profiles p
-  where p.id != auth.uid()
-    and (p.username ilike '%' || search_query || '%' or p.display_name ilike '%' || search_query || '%')
-  limit 20;
-end;
-$body language plpgsql security definer;
