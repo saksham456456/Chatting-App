@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react'
-import { X, Search, Loader2, UserPlus } from 'lucide-react'
+import { X, Search, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '../ui/Avatar'
 import { useChatStore } from '@/store/useChatStore'
 
 export function NewChatModal({ onClose }: { onClose: () => void }) {
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<any[]>([])
+  const [results, setResults] = useState<{ id: string; username: string; display_name: string; avatar_url: string }[]>([])
   const [loading, setLoading] = useState(false)
   const [startingChat, setStartingChat] = useState<string | null>(null)
   
   const supabase = createClient()
-  const { setActiveChatId, chats } = useChatStore()
+  const { setActiveChatId } = useChatStore()
 
   useEffect(() => {
     const search = async () => {
@@ -29,9 +29,9 @@ export function NewChatModal({ onClose }: { onClose: () => void }) {
 
     const timer = setTimeout(search, 300)
     return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query])
 
-  const handleStartChat = async (partnerId: string) => {
   const handleStartChat = async (userId: string) => {
     setStartingChat(userId)
     const { data, error } = await supabase.rpc('start_direct_chat', { partner_id: userId })
