@@ -57,7 +57,7 @@ interface ChatState {
   setAllTypingUsers: (typingData: Record<string, Set<string>>) => void
 }
 
-export const useChatStore = create<ChatState>((set, get) => ({
+export const useChatStore = create<ChatState>((set) => ({
   currentUser: null,
   chats: [],
   activeChatId: null,

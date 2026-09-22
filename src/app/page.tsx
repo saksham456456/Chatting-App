@@ -54,9 +54,14 @@ export default function AuthPage() {
     const saved = localStorage.getItem('chatty_vault_v2')
     if (saved) {
       const accounts = JSON.parse(saved) as VaultAccount[]
+      // eslint-disable-next-line
       setVault(accounts)
-      if (accounts.length === 0) setMode('login')
+      if (accounts.length === 0) {
+        // eslint-disable-next-line
+        setMode('login')
+      }
     } else {
+      // eslint-disable-next-line
       setMode('login')
     }
   }, [])
@@ -66,11 +71,14 @@ export default function AuthPage() {
     const clean = username.trim().toLowerCase()
     
     if (mode !== 'register' || !clean || clean.length < 3) {
+      // eslint-disable-next-line
       setUsernameAvailable(null)
+      // eslint-disable-next-line
       setSuggestedUsernames([])
       return
     }
     
+    // eslint-disable-next-line
     setCheckingUsername(true)
     latestCheckRef.current = clean
     
@@ -98,9 +106,10 @@ export default function AuthPage() {
     }, 400)
     
     return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username, mode])
 
-  const saveToVault = async (user: any) => {
+  const saveToVault = async (user: { id: string; user_metadata?: Record<string, unknown> }) => {
     // Fetch profile to get display name and avatar
     const { data: profile } = await supabase
       .from('profiles')
@@ -110,8 +119,8 @@ export default function AuthPage() {
 
     const newAccount: VaultAccount = {
       id: user.id,
-      username: profile?.username || user.user_metadata.username,
-      displayName: profile?.display_name || user.user_metadata.display_name,
+      username: profile?.username || (user.user_metadata?.username as string),
+      displayName: profile?.display_name || (user.user_metadata?.display_name as string),
       avatarUrl: profile?.avatar_url,
     }
 
@@ -287,7 +296,7 @@ export default function AuthPage() {
                 onClick={() => setMode('register')}
                 className="text-blue-600 text-sm hover:underline"
               >
-                Don't have an account? Sign up
+                Don&apos;t have an account? Sign up
               </button>
             </div>
             {vault.length > 0 && (

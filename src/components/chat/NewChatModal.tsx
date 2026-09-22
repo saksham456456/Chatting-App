@@ -32,80 +32,75 @@ export function NewChatModal({ onClose }: { onClose: () => void }) {
   }, [query])
 
   const handleStartChat = async (partnerId: string) => {
-    setStartingChat(partnerId)
-    const { data: chatId, error } = await supabase.rpc('start_direct_chat', { partner_id: partnerId })
-    setStartingChat(null)
-
-    if (chatId) {
-      // It might take a moment for the realtime subscription to pull down the chat data.
-      // But we can eagerly select it so when it appears, we are on it.
-      // Wait, we need the chat to exist in the store. 
-      // If the chat doesn't exist yet, we trigger a manual refresh.
-      
-      const chatExists = chats.find(c => c.chat_id === chatId)
-      if (!chatExists) {
-        // Fetch manually just in case realtime is slow
-        const { data } = await supabase.rpc('get_conversations', { current_user_id: (await supabase.auth.getSession()).data.session?.user.id })
-        if (data) useChatStore.getState().setChats(data)
-      }
-      
-      setActiveChatId(chatId)
+  const handleStartChat = async (userId: string) => {
+    setStartingChat(userId)
+    const { data, error } = await supabase.rpc('start_direct_chat', { partner_id: userId })
+    if (error) {
+      console.error('Failed to start chat:', error)
+      setStartingChat(null)
+      return
+    }
+    
+    // Switch to new chat
+    if (data) {
+      setActiveChatId(data)
       onClose()
     }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
-        <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-800">
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white">New Chat</h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-xl flex flex-col max-h-[80vh]">
+        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
+          <button onClick={onClose} className="p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
             <X size={20} />
           </button>
+          <h2 className="font-semibold text-lg text-slate-900 dark:text-white">New Chat</h2>
         </div>
-
-        <div className="p-4 border-b border-slate-200 dark:border-slate-800">
+        
+        <div className="p-4 border-b border-slate-100 dark:border-slate-800">
           <div className="relative">
             <input 
               type="text" 
-              placeholder="Search users by username..." 
+              placeholder="Search by username or name..." 
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full bg-slate-100 dark:bg-slate-800 rounded-lg py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white"
+              className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white"
               autoFocus
             />
             <Search size={18} className="absolute left-3 top-3.5 text-slate-400" />
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
+        <div className="flex-1 overflow-y-auto p-2">
           {loading ? (
-            <div className="flex justify-center p-4"><Loader2 className="animate-spin text-blue-500" /></div>
-          ) : query.trim() && results.length === 0 ? (
-            <div className="text-center text-slate-500 p-4 text-sm">No users found matching "{query}"</div>
-          ) : (
+            <div className="flex justify-center p-4">
+              <Loader2 className="animate-spin text-blue-500" />
+            </div>
+          ) : results.length > 0 ? (
             results.map(user => (
-              <div 
-                key={user.id} 
+              <button
+                key={user.id}
                 onClick={() => handleStartChat(user.id)}
-                className="flex items-center justify-between p-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer transition-colors"
+                disabled={startingChat === user.id}
+                className="w-full flex items-center p-3 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors text-left"
               >
-                <div className="flex items-center gap-3">
-                  <Avatar url={user.avatar_url} name={user.display_name || user.username} />
-                  <div>
-                    <h3 className="font-semibold text-slate-900 dark:text-white leading-none">
-                      {user.display_name || user.username}
-                    </h3>
-                    <span className="text-xs text-slate-500">@{user.username}</span>
-                  </div>
+                <Avatar url={user.avatar_url} name={user.display_name || user.username} />
+                <div className="ml-3 flex-1">
+                  <div className="font-medium text-slate-900 dark:text-white">{user.display_name || user.username}</div>
+                  <div className="text-sm text-slate-500">@{user.username}</div>
                 </div>
-                {startingChat === user.id ? (
-                  <Loader2 size={18} className="animate-spin text-blue-500" />
-                ) : (
-                  <UserPlus size={18} className="text-slate-400" />
-                )}
-              </div>
+                {startingChat === user.id && <Loader2 size={18} className="animate-spin text-blue-500" />}
+              </button>
             ))
+          ) : query.trim().length >= 2 ? (
+            <div className="text-center text-slate-500 p-8">
+              No users found matching &quot;{query}&quot;
+            </div>
+          ) : (
+            <div className="text-center text-slate-500 p-8">
+              Type at least 2 characters to search
+            </div>
           )}
         </div>
       </div>

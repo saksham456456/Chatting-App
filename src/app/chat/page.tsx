@@ -13,7 +13,7 @@ import { Loader } from '@/components/ui/Loader'
 export default function ChatPage() {
   const router = useRouter()
   const supabase = createClient()
-  const { currentUser, setCurrentUser } = useChatStore()
+  const { setCurrentUser } = useChatStore()
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
 

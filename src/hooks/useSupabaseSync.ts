@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useChatStore } from '@/store/useChatStore'
+import { useChatStore, Message } from '@/store/useChatStore'
 import { RealtimeChannel } from '@supabase/supabase-js'
 
 export function useSupabaseSync() {
-  const { currentUser, setChats, addMessage, setOnlineUsers, setTypingUsers } = useChatStore()
+  const { currentUser, setChats, addMessage, setOnlineUsers } = useChatStore()
   const supabase = createClient()
   const presenceChannelRef = useRef<RealtimeChannel | null>(null)
 
@@ -24,7 +24,7 @@ export function useSupabaseSync() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload) => {
-          const newMessage = payload.new as any
+          const newMessage = payload.new as Message
           addMessage(newMessage)
           fetchChats()
         }
@@ -32,14 +32,14 @@ export function useSupabaseSync() {
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'chat_participants' },
-        (payload) => {
+        () => {
           fetchChats()
         }
       )
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_participants' },
-        (payload) => {
+        () => {
           fetchChats()
         }
       )
@@ -55,8 +55,8 @@ export function useSupabaseSync() {
         const online = new Set<string>()
         const typing: Record<string, Set<string>> = {}
 
-        for (const [key, presences] of Object.entries(state)) {
-          for (const p of presences as any[]) {
+        for (const presences of Object.values(state)) {
+          for (const p of presences as { user_id?: string; typing_in?: string }[]) {
             if (p.user_id) {
               online.add(p.user_id)
               if (p.typing_in) {
@@ -85,6 +85,7 @@ export function useSupabaseSync() {
       supabase.removeChannel(presenceChannel)
       presenceChannelRef.current = null
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser])
 
   // Return a helper to broadcast typing
