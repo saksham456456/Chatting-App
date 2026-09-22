@@ -54,7 +54,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-screen bg-white dark:bg-slate-900 overflow-hidden font-sans">
+    <div className="flex h-screen bg-white dark:bg-[#0f1418] overflow-hidden font-sans">
       <Sidebar onOpenSettings={() => setIsProfileModalOpen(true)} />
       <ChatContainer broadcastTyping={broadcastTyping} />
       

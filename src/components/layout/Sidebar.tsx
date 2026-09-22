@@ -16,7 +16,7 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   })
 
   return (
-    <div className="w-full md:w-[350px] lg:w-[400px] flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 h-full">
+    <div className="w-full md:w-[350px] lg:w-[400px] flex flex-col bg-white dark:bg-[#212121] border-r border-slate-200 dark:border-slate-800 h-full">
       {/* Header */}
       <div className="p-3 flex items-center gap-2 border-b border-slate-100 dark:border-slate-800">
         <button 

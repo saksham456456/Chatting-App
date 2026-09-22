@@ -19,7 +19,8 @@ export function ChatContainer({ broadcastTyping }: ChatContainerProps) {
     setActiveChatId,
     onlineUsers,
     typingUsers,
-    addMessage
+    addMessage,
+    updateMessage
   } = useChatStore()
   
   const supabase = createClient()
@@ -63,9 +64,29 @@ export function ChatContainer({ broadcastTyping }: ChatContainerProps) {
     fetchMessages()
   }, [activeChatId, currentUser])
 
+  // Update read receipt whenever new messages arrive in the active chat
+  useEffect(() => {
+    if (!activeChatId || !currentUser || chatMessages.length === 0) return
+    
+    const lastMsgId = chatMessages[chatMessages.length - 1].id
+    // Don't mark our own newly sent optimistic messages
+    if (chatMessages[chatMessages.length - 1].sender_id === currentUser.id) return
+
+    const markAsRead = async () => {
+      const { error } = await supabase
+        .from('chat_participants')
+        .update({ last_read_message_id: lastMsgId })
+        .eq('chat_id', activeChatId)
+        .eq('user_id', currentUser.id)
+      
+      if (error) console.error('Failed to update read receipt for new message:', error)
+    }
+    markAsRead()
+  }, [chatMessages.length, activeChatId, currentUser])
+
   if (!chat || !currentUser) {
     return (
-      <div className="hidden md:flex flex-1 items-center justify-center bg-[#f0f2f5] dark:bg-slate-950">
+      <div className="hidden md:flex flex-1 items-center justify-center bg-[#f0f2f5] dark:bg-[#0f1418]">
         <div className="bg-white/60 dark:bg-slate-800/60 px-4 py-2 rounded-full text-slate-500 text-sm">
           Select a chat to start messaging
         </div>
@@ -101,7 +122,8 @@ export function ChatContainer({ broadcastTyping }: ChatContainerProps) {
       sender_id: currentUser.id,
       text,
       image_url,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      isOptimistic: true
     }
 
     // Optimistic UI update
@@ -118,6 +140,9 @@ export function ChatContainer({ broadcastTyping }: ChatContainerProps) {
     
     if (insertError) {
       console.error('Failed to send message:', insertError)
+      updateMessage(activeChatId, newMessage.id, { error: true, isOptimistic: false })
+    } else {
+      updateMessage(activeChatId, newMessage.id, { isOptimistic: false })
     }
   }
 
@@ -134,7 +159,7 @@ export function ChatContainer({ broadcastTyping }: ChatContainerProps) {
   }
 
   return (
-    <div className={`flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-950 absolute md:static top-0 left-0 right-0 bottom-0 z-10 transition-transform ${activeChatId ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
+    <div className={`flex-1 flex flex-col h-full bg-[#e5ddd5] dark:bg-[#0f1418] absolute md:static top-0 left-0 right-0 bottom-0 z-10 transition-transform ${activeChatId ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
       <ChatHeader 
         chat={chat} 
         isOnline={isOnline}

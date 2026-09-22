@@ -16,7 +16,7 @@ export function ChatHeader({ chat, isOnline, isTyping, onBack }: ChatHeaderProps
   const avatarUrl = isDirect ? chat.partner_avatar : chat.chat_avatar_url
 
   return (
-    <div className="h-[60px] border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between px-3 shrink-0">
+    <div className="h-[60px] border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#212121] flex items-center justify-between px-3 shrink-0">
       <div className="flex items-center gap-3">
         <button 
           onClick={onBack}

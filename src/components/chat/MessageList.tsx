@@ -16,7 +16,7 @@ export function MessageList({ messages, currentUserId, partnerLastReadTime }: Me
   }, [messages])
   
   return (
-    <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-[#e5ddd5] dark:bg-[#0f172a]">
+    <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-transparent">
       <div className="max-w-4xl mx-auto flex flex-col justify-end min-h-full">
         {messages.length === 0 ? (
           <div className="text-center text-slate-500 my-auto bg-white/50 dark:bg-slate-800/50 p-3 rounded-lg mx-auto text-sm">

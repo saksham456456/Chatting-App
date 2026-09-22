@@ -23,7 +23,7 @@ export function ChatListItem({ chat, isActive, onClick, isOnline }: ChatListItem
   return (
     <div 
       onClick={onClick}
-      className={`flex items-center p-3 cursor-pointer transition-colors ${isActive ? 'bg-blue-600 text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+      className={`flex items-center p-3 cursor-pointer transition-colors ${isActive ? 'bg-[#3390ec] text-white' : 'hover:bg-slate-100 dark:hover:bg-[#2b2b2b]'}`}
     >
       <div className="relative">
         <Avatar url={avatarUrl} name={displayName} />

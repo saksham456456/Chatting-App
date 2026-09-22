@@ -32,6 +32,8 @@ export type Message = {
   text: string
   image_url: string | null
   created_at: string
+  isOptimistic?: boolean
+  error?: boolean
 }
 
 interface ChatState {
@@ -49,6 +51,7 @@ interface ChatState {
   setActiveChatId: (id: string | null) => void
   setMessages: (chatId: string, messages: Message[]) => void
   addMessage: (message: Message) => void
+  updateMessage: (chatId: string, messageId: string, updates: Partial<Message>) => void
   setOnlineUsers: (users: Set<string>) => void
   setTypingUsers: (chatId: string, users: Set<string>) => void
   setAllTypingUsers: (typingData: Record<string, Set<string>>) => void
@@ -78,15 +81,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   addMessage: (message) => set((state) => {
     const chatMessages = state.messages[message.chat_id] || []
-    // Prevent duplicate messages if optimistic update already added it
-    if (chatMessages.some(m => m.id === message.id)) return state
+    if (chatMessages.some(m => m.id === message.id && !m.isOptimistic)) return state
     
+    // If it exists as optimistic, replace it. Otherwise append.
+    const exists = chatMessages.some(m => m.id === message.id)
+    const newMessages = exists 
+      ? chatMessages.map(m => m.id === message.id ? { ...m, ...message, isOptimistic: false } : m)
+      : [...chatMessages, message]
+      
     return {
       messages: {
         ...state.messages,
-        [message.chat_id]: [...chatMessages, message].sort((a, b) => 
+        [message.chat_id]: newMessages.sort((a, b) => 
           new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         )
+      }
+    }
+  }),
+
+  updateMessage: (chatId, messageId, updates) => set((state) => {
+    const chatMessages = state.messages[chatId] || []
+    return {
+      messages: {
+        ...state.messages,
+        [chatId]: chatMessages.map(m => m.id === messageId ? { ...m, ...updates } : m)
       }
     }
   }),

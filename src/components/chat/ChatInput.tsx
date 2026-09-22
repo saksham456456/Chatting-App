@@ -32,7 +32,7 @@ export function ChatInput({ onSendMessage, onTyping }: ChatInputProps) {
   }
 
   return (
-    <div className="p-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+    <div className="p-3 bg-white dark:bg-[#212121] border-t border-slate-200 dark:border-slate-800">
       {file && (
         <div className="mb-2 p-2 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-between text-sm">
           <span className="truncate text-slate-700 dark:text-slate-300">
