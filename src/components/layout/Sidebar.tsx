@@ -1,11 +1,13 @@
 import React, { useState } from 'react'
-import { Menu, Search, Settings } from 'lucide-react'
+import { Menu, Search, Edit } from 'lucide-react'
 import { useChatStore } from '@/store/useChatStore'
 import { ChatListItem } from './ChatListItem'
+import { NewChatModal } from '../chat/NewChatModal'
 
 export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const { chats, activeChatId, setActiveChatId, onlineUsers } = useChatStore()
   const [searchQuery, setSearchQuery] = useState('')
+  const [isNewChatOpen, setIsNewChatOpen] = useState(false)
 
   const filteredChats = chats.filter(chat => {
     if (!searchQuery) return true
@@ -16,10 +18,10 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
   return (
     <div className="w-full md:w-[350px] lg:w-[400px] flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 h-full">
       {/* Header */}
-      <div className="p-3 flex items-center gap-3">
+      <div className="p-3 flex items-center gap-2 border-b border-slate-100 dark:border-slate-800">
         <button 
           onClick={onOpenSettings}
-          className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500"
+          className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500 shrink-0"
         >
           <Menu size={24} />
         </button>
@@ -34,6 +36,13 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           />
           <Search size={18} className="absolute left-3 top-2.5 text-slate-400" />
         </div>
+        
+        <button 
+          onClick={() => setIsNewChatOpen(true)}
+          className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors shrink-0"
+        >
+          <Edit size={20} />
+        </button>
       </div>
 
       {/* Chat List */}
@@ -54,6 +63,8 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
           ))
         )}
       </div>
+
+      {isNewChatOpen && <NewChatModal onClose={() => setIsNewChatOpen(false)} />}
     </div>
   )
 }

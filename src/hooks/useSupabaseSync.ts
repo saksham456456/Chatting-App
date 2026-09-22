@@ -33,7 +33,13 @@ export function useSupabaseSync() {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'chat_participants' },
         (payload) => {
-          // A participant updated their last_read_message_id, refresh chats to get new partner_last_read_time
+          fetchChats()
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_participants' },
+        (payload) => {
           fetchChats()
         }
       )

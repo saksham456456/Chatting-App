@@ -167,3 +167,53 @@ create policy "Users can update their own avatar." on storage.objects for update
 
 create policy "Chat attachments are publicly accessible." on storage.objects for select using (bucket_id = 'chat_attachments');
 create policy "Users can upload chat attachments." on storage.objects for insert with check (bucket_id = 'chat_attachments' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- RPC Function to start a direct chat
+create or replace function start_direct_chat(partner_id uuid)
+returns uuid as $body
+declare
+  existing_chat_id uuid;
+  new_chat_id uuid;
+begin
+  -- Check if a direct chat already exists between these two users
+  select c.id into existing_chat_id
+  from chats c
+  join chat_participants cp1 on cp1.chat_id = c.id
+  join chat_participants cp2 on cp2.chat_id = c.id
+  where c.type = 'direct'
+    and cp1.user_id = auth.uid()
+    and cp2.user_id = partner_id
+  limit 1;
+
+  if existing_chat_id is not null then
+    return existing_chat_id;
+  end if;
+
+  -- Create a new chat
+  insert into chats (type) values ('direct') returning id into new_chat_id;
+
+  -- Insert participants
+  insert into chat_participants (chat_id, user_id) values (new_chat_id, auth.uid());
+  insert into chat_participants (chat_id, user_id) values (new_chat_id, partner_id);
+
+  return new_chat_id;
+end;
+$body language plpgsql security definer;
+
+-- RPC Function to search users
+create or replace function search_users(search_query text)
+returns table (
+  id uuid,
+  username text,
+  display_name text,
+  avatar_url text
+) as $body
+begin
+  return query
+  select p.id, p.username, p.display_name, p.avatar_url
+  from profiles p
+  where p.id != auth.uid()
+    and (p.username ilike '%' || search_query || '%' or p.display_name ilike '%' || search_query || '%')
+  limit 20;
+end;
+$body language plpgsql security definer;
